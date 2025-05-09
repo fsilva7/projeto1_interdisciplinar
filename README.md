@@ -1,6 +1,6 @@
 # Este projeto utiliza um banco de dados PostgreSQL chamado agendamentos. Abaixo estão os comandos SQL necessários para criar as tabelas essenciais do sistema.
 
-🗂️ Tabelas do Sistema
+🗂️ Tabelas do Sistema.
 
 ### clientes : Armazena os dados dos clientes, incluindo nome e telefone.
 
