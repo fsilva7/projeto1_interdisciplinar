@@ -83,6 +83,12 @@ class BarbeariaApp:
             expand=True
         )
         
+        # Campos do formulário de registro de barbeiro
+        self.registro_nome = ft.TextField(label="Nome", expand=True)
+        self.registro_email = ft.TextField(label="Email", expand=True)
+        self.registro_senha = ft.TextField(label="Senha", password=True, can_reveal_password=True, expand=True)
+        self.registro_mensagem = ft.Container(visible=False)
+        
         # Container para mensagens
         self.mensagem_container = ft.Container(visible=False)
         
@@ -105,6 +111,10 @@ class BarbeariaApp:
     
     def mostrar_tela_agendamento(self):
         """Mostra a tela principal de agendamento para clientes."""
+        # Limpa mensagens antigas
+        self.mensagem_container.visible = False
+        self.mensagem_container.content = None
+        
         self.page.clean()
         
         # Cabeçalho
@@ -151,6 +161,10 @@ class BarbeariaApp:
     
     def mostrar_tela_login(self):
         """Mostra a tela de login para o barbeiro."""
+        # Limpa mensagens antigas
+        self.mensagem_container.visible = False
+        self.mensagem_container.content = None
+        
         self.page.clean()
         
         titulo = ft.Text("Área Administrativa", size=32, weight=ft.FontWeight.BOLD)
@@ -165,6 +179,11 @@ class BarbeariaApp:
                 ft.ElevatedButton(
                     "Entrar",
                     on_click=self.fazer_login,
+                    expand=True
+                ),
+                ft.ElevatedButton(
+                    "Registrar novo barbeiro",
+                    on_click=self.mostrar_tela_registro,
                     expand=True
                 ),
                 ft.TextButton(
@@ -186,28 +205,91 @@ class BarbeariaApp:
             ], spacing=20)
         )
     
+    def mostrar_tela_registro(self, e=None):
+        """Mostra a tela de registro de novo barbeiro."""
+        # Limpa mensagens antigas e campos
+        self.registro_nome.value = ""
+        self.registro_email.value = ""
+        self.registro_senha.value = ""
+        self.registro_mensagem.visible = False
+        self.registro_mensagem.content = None
+        self.page.clean()
+        titulo = ft.Text("Registrar Novo Barbeiro", size=32, weight=ft.FontWeight.BOLD)
+        subtitulo = ft.Text("Preencha os dados para criar um novo usuário", size=16)
+        form_registro = ft.Container(
+            content=ft.Column([
+                ft.Text("Cadastro", size=20, weight=ft.FontWeight.BOLD),
+                self.registro_nome,
+                self.registro_email,
+                self.registro_senha,
+                self.registro_mensagem,
+                ft.ElevatedButton(
+                    "Registrar",
+                    on_click=self.fazer_registro,
+                    expand=True
+                ),
+                ft.TextButton(
+                    "Voltar para Login",
+                    on_click=lambda _: self.mostrar_tela_login()
+                )
+            ], spacing=20),
+            padding=30,
+            border_radius=10,
+            border=ft.border.all(1, ft.colors.GREY_400),
+            width=400
+        )
+        self.page.add(
+            ft.Column([
+                ft.Row([titulo], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([subtitulo], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([form_registro], alignment=ft.MainAxisAlignment.CENTER)
+            ], spacing=20)
+        )
+
     def fazer_login(self, e):
         """Processa o login do barbeiro."""
         email = self.email_login.value
         senha = self.senha_login.value
-        
         if not email or not senha:
             self.mostrar_mensagem("Preencha todos os campos")
             return
-        
         barbeiro = auth.validar_login(email, senha)
         if barbeiro:
             self.barbeiro_atual = barbeiro
-            self.mostrar_mensagem("Login realizado com sucesso!", tipo="sucesso")
+            # Mostra notificação de login apenas na área administrativa, uma vez
+            self.mensagem_login_admin = True
             self.mostrar_tela_barbeiro()
         else:
-            self.mostrar_mensagem("Email ou senha inválidos")
+            self.mensagem_container.visible = True
+            self.mensagem_container.content = criar_mensagem_erro("Usuário não encontrado.")
+            self.page.update()
+
+    def fazer_registro(self, e):
+        """Processa o registro de um novo barbeiro."""
+        nome = self.registro_nome.value
+        email = self.registro_email.value
+        senha = self.registro_senha.value
+        if not nome or not email or not senha:
+            self.registro_mensagem.visible = True
+            self.registro_mensagem.content = criar_mensagem_erro("Preencha todos os campos")
+            self.page.update()
+            return
+        try:
+            auth.registrar_usuario(email, senha, nome)
+            self.registro_mensagem.visible = True
+            self.registro_mensagem.content = criar_mensagem_sucesso("Usuário registrado com sucesso! Faça login.")
+            self.page.update()
+        except Exception as erro:
+            self.registro_mensagem.visible = True
+            self.registro_mensagem.content = criar_mensagem_erro(str(erro))
+            self.page.update()
     
     def mostrar_tela_barbeiro(self):
         """Mostra a tela principal para barbeiros."""
+        # Limpa mensagens antigas
+        self.mensagem_container.visible = False
+        self.mensagem_container.content = None
         self.page.clean()
-        
-        # Cabeçalho
         cabecalho = ft.AppBar(
             leading=ft.Icon(ft.icons.CONTENT_CUT),
             leading_width=40,
@@ -217,8 +299,6 @@ class BarbeariaApp:
                 ft.IconButton(ft.icons.LOGOUT, on_click=self.fazer_logout)
             ],
         )
-        
-        # Filtros
         filtros = ft.Card(
             content=ft.Container(
                 content=ft.Row([
@@ -247,10 +327,8 @@ class BarbeariaApp:
                 padding=20
             )
         )
-          # Lista de todos os agendamentos
         self.lista_agendamentos = ft.Column(spacing=10)
         self.carregar_agendamentos()
-        
         card_agendamentos = ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -267,10 +345,26 @@ class BarbeariaApp:
                 padding=20
             )
         )
-        
+        conteudo = [filtros, card_agendamentos]
+        # Mostra notificação de login apenas uma vez e por 2 segundos
+        if hasattr(self, 'mensagem_login_admin') and self.mensagem_login_admin:
+            self.mensagem_login_admin = False
+            self.notificacao_login = ft.SnackBar(
+                content=ft.Text("Login realizado com sucesso!", color=ft.colors.WHITE),
+                bgcolor=ft.colors.GREEN,
+                duration=2000
+            )
+            self.page.snack_bar = self.notificacao_login
+            self.page.add(
+                cabecalho,
+                ft.Column(conteudo, spacing=20)
+            )
+            self.page.snack_bar.open = True
+            self.page.update()
+            return
         self.page.add(
             cabecalho,
-            ft.Column([filtros, card_agendamentos], spacing=20)
+            ft.Column(conteudo, spacing=20)
         )
     
     def fazer_logout(self, e):
@@ -370,9 +464,50 @@ class BarbeariaApp:
         self.page.update()
     
     def filtrar_agendamentos(self, e):
-        """Filtra os agendamentos por data e status."""
-        # TODO: Implementar filtros
-        self.carregar_agendamentos()
+        """Filtra os agendamentos por data e status de forma combinada, usando a data do agendamento."""
+        filtro_data = None
+        filtro_status = None
+        for control in e.control.parent.controls:
+            if isinstance(control, ft.Dropdown):
+                if control.label == "Filtrar por data":
+                    filtro_data = control.value
+                elif control.label == "Status":
+                    filtro_status = control.value
+        agendamentos = db.listar_agendamentos()
+        # Função para obter a data do agendamento como objeto date
+        def get_data_agendamento(a):
+            d = getattr(a, 'data', None)
+            if isinstance(d, datetime):
+                return d.date()
+            elif isinstance(d, str):
+                try:
+                    return datetime.strptime(d, "%Y-%m-%d").date()
+                except Exception:
+                    return None
+            return d
+        # Filtrar por data
+        if filtro_data and filtro_data != "todos":
+            hoje = datetime.now().date()
+            if filtro_data == "hoje":
+                agendamentos = [a for a in agendamentos if get_data_agendamento(a) == hoje]
+            elif filtro_data == "semana":
+                inicio_semana = hoje - timedelta(days=hoje.weekday())
+                fim_semana = inicio_semana + timedelta(days=6)
+                agendamentos = [a for a in agendamentos if get_data_agendamento(a) and inicio_semana <= get_data_agendamento(a) <= fim_semana]
+        # Filtrar por status
+        if filtro_status and filtro_status != "todos":
+            agendamentos = [a for a in agendamentos if a.status == filtro_status]
+        self.lista_agendamentos.controls.clear()
+        if not agendamentos:
+            self.lista_agendamentos.controls.append(
+                ft.Text("Nenhum agendamento encontrado", italic=True)
+            )
+        else:
+            for agendamento in agendamentos:
+                self.lista_agendamentos.controls.append(
+                    self.criar_card_agendamento(agendamento)
+                )
+        self.page.update()
     
     def criar_card_agendamento(self, agendamento):
         """Cria um card para exibir um agendamento."""
