@@ -74,7 +74,8 @@ class BarbeariaApp:
         self.dias_disponiveis = ft.Dropdown(
             label="Dia",
             options=dias_disponiveis,
-            expand=True
+            expand=True,
+            on_change=self.atualizar_horarios_disponiveis
         )
         
         self.horarios_disponiveis = ft.Dropdown(
@@ -554,6 +555,26 @@ class BarbeariaApp:
             ),
             color=STATUS_CORES.get(agendamento.status)
         )
+
+    def atualizar_horarios_disponiveis(self, e):
+        """Updates available time slots based on the selected date, disabling already booked slots."""
+        data = self.dias_disponiveis.value
+        novas_opcoes = []
+        if data:
+            for hora in HORARIOS_DISPONIVEIS:
+                ocupado = db.verificar_conflito_horario(data, hora)
+                novas_opcoes.append(
+                    ft.dropdown.Option(
+                        hora,
+                        disabled=ocupado,
+                        text=hora + (" (Agendado)" if ocupado else "")
+                    )
+                )
+        else:
+            novas_opcoes = [ft.dropdown.Option(hora) for hora in HORARIOS_DISPONIVEIS]
+        self.horarios_disponiveis.options = novas_opcoes
+        self.horarios_disponiveis.value = None
+        self.page.update()
 
 def main(page: ft.Page):
     app = BarbeariaApp(page)
