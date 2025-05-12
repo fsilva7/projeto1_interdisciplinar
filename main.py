@@ -557,21 +557,30 @@ class BarbeariaApp:
         )
 
     def atualizar_horarios_disponiveis(self, e):
-        """Updates available time slots based on the selected date, disabling already booked slots."""
+        """Atualiza os horários disponíveis com base na data selecionada e no horário atual, desabilitando horários já agendados ou passados."""
         data = self.dias_disponiveis.value
         novas_opcoes = []
-        if data:
-            for hora in HORARIOS_DISPONIVEIS:
+        agora = datetime.now()
+        hoje_str = agora.strftime("%Y-%m-%d")
+        for hora in HORARIOS_DISPONIVEIS:
+            ocupado = False
+            passado = False
+            if data:
+                # Verifica se o horário já passou (apenas para o dia de hoje)
+                if data == hoje_str:
+                    hora_dt = datetime.strptime(f"{data} {hora}", "%Y-%m-%d %H:%M")
+                    if hora_dt <= agora:
+                        passado = True
+                # Verifica se já está agendado
                 ocupado = db.verificar_conflito_horario(data, hora)
-                novas_opcoes.append(
-                    ft.dropdown.Option(
-                        hora,
-                        disabled=ocupado,
-                        text=hora + (" (Agendado)" if ocupado else "")
-                    )
+            # Desabilita se já passou ou está agendado
+            novas_opcoes.append(
+                ft.dropdown.Option(
+                    hora,
+                    disabled=ocupado or passado,
+                    text=hora + (" (Agendado)" if ocupado else "")
                 )
-        else:
-            novas_opcoes = [ft.dropdown.Option(hora) for hora in HORARIOS_DISPONIVEIS]
+            )
         self.horarios_disponiveis.options = novas_opcoes
         self.horarios_disponiveis.value = None
         self.page.update()
